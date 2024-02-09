@@ -23,6 +23,7 @@ import logo from '@/assets/logo.svg';
 import Footer from '@/components/Footer';
 import { getUrlQuery } from '@/helpers';
 import LoginMethodPassword from '@/pages/User/components/LoginMethodPassword';
+import LoginMethodOidc from '@/pages/User/components/LoginMethodOidc';
 import type { UserModule } from '@/pages/User/typing';
 import { SelectLang } from '@@/plugin-locale/SelectLang';
 
@@ -33,7 +34,7 @@ const Tab = Tabs.TabPane;
 /**
  * Login Methods List
  */
-const loginMethods: UserModule.LoginMethod[] = [LoginMethodPassword];
+const loginMethods: UserModule.LoginMethod[] = [LoginMethodOidc, LoginMethodPassword];
 
 /**
  * User Login Page
@@ -53,6 +54,11 @@ const Page: React.FC = () => {
     loginMethod.checkData().then((validate) => {
       if (validate) {
         loginMethod.submit(loginMethod.getData()).then((response) => {
+          if (response.redirectTo) {
+            window.location.href = response.redirectTo;
+            return;
+          }
+
           if (response.status) {
             notification.success({
               message: formatMessage({ id: 'component.status.success' }),

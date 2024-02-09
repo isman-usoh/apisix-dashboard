@@ -14,30 +14,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import React from 'react';
+import { formatMessage } from 'umi';
 
-import type React from 'react';
+import type { UserModule } from '@/pages/User/typing';
 
-declare namespace UserModule {
-  type LoginMethod = {
-    id: string;
-    name: string;
-    render: () => React.ReactElement;
-    getData: () => LoginData;
-    checkData: () => Promise<boolean>;
-    submit: (data) => Promise<LoginResponse>;
-    logout: () => void;
-  };
+const LoginMethodOidc: UserModule.LoginMethod = {
+  id: 'oidc',
+  name: formatMessage({ id: 'component.user.loginMethodOidc' }),
+  render: () => {
+    return (
+      <></>
+    );
+  },
+  getData(): UserModule.LoginData {
+    return {};
+  },
+  checkData: async () => {
+    return true;
+  },
+  submit: async (data) => {
+    return {
+      status: false,
+      message: '',
+      data: [],
+      redirectTo: '/apisix/admin/oidc/login',
+    }
+  },
+  logout: () => {
+    localStorage.removeItem('token');
+  },
+};
 
-  type LoginData = {
-    [string]: string;
-  };
-
-  type LoginResponse = {
-    status: boolean;
-    message: string;
-    data: {
-      [string]: any;
-    };
-    redirectTo?: string | null | undefined;
-  };
-}
+export default LoginMethodOidc;
