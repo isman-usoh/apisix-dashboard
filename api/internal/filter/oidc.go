@@ -18,9 +18,11 @@ package filter
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 	"golang.org/x/oauth2"
 
 	"github.com/apisix/manager-api/internal/conf"
@@ -72,13 +74,27 @@ func Oidc() gin.HandlerFunc {
 				return
 			}
 
-			// set the cookie
-			conf.CookieStore.MaxAge(conf.OidcExpireTime)
-			cookie, _ := conf.CookieStore.Get(c.Request, "oidc")
-			cookie.Values["oidc_id"] = userInfo.Subject
-			conf.OidcId = userInfo.Subject
-			cookie.Save(c.Request, c.Writer)
-			c.AbortWithStatus(http.StatusOK)
+			// create JWT for session
+			claims := jwt.StandardClaims{
+				Subject: userInfo.Email,
+				// It's important to set the Issuer here, to indicate to `filter.Authentication`
+				// that this is a JWT token coming from an OIDC flow, so that it won't try to
+				// look for the `Subject` in the hardcode (in the config) list of allowed credentials.
+				Issuer:    "oidc",
+				IssuedAt:  time.Now().Unix(),
+				ExpiresAt: time.Now().Add(time.Second * time.Duration(conf.AuthConf.ExpireTime)).Unix(),
+			}
+			jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+			signedToken, _ := jwtToken.SignedString([]byte(conf.AuthConf.Secret))
+
+			// Short-lived. We expect the next page load to read it,
+			// transition it to localStorage (as `token`) and remove it.
+			maxAge := 30
+			// It's important that the cookie is NOT http-only, because we need the frontend to read it.
+			c.SetCookie("oidc_user_token", signedToken, maxAge, "/", "", false, false)
+
+			c.Redirect(http.StatusTemporaryRedirect, "/")
+
 			return
 		}
 

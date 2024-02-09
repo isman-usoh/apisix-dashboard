@@ -29,10 +29,46 @@ import { queryCurrent } from '@/services/user';
 
 import defaultSettings from '../config/defaultSettings';
 
+const getCookie = function (cookiesString: string, name: string): string | null {
+  const cookies = cookiesString.split(';');
+  for (let idx in cookies) {
+    const cookie = cookies[idx].trim();
+    if (!cookie.startsWith(name + '=')) {
+      continue;
+    }
+
+    return cookie.substring((name + '=').length);
+  }
+
+  return null;
+};
+
+const deleteCookie = function (name: string) {
+  window.document.cookie = `${encodeURIComponent(name)}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+};
+
 export async function getInitialState(): Promise<{
   currentUser?: API.CurrentUser;
   settings?: LayoutSettings;
 }> {
+  // Username/password login is handled by this frontend and leads to `token` being stored in localStorage.
+  // Other frontend logic depends on the `token` localStorage value (sending API requests, etc.),
+  // so it's crucial that it's there.
+  //
+  // The SSO flow cannot inject a `token` into localStorage, so it sets an `oidc_user_token` cookie instead.
+  // Here, we assist the SSO flow by migrating the cookie's value to localStorage and getting rid of it.
+  //
+  // From that point onward, both authentication flows behave identically.
+
+  const oidcCookie = getCookie(document.cookie, 'oidc_user_token');
+  if (oidcCookie) {
+    localStorage.setItem('token', oidcCookie);
+
+    // We delete the cookie, so that logout (which only deals with localStorage)
+    // would not redirect us here and have us immediately log the user in again.
+    deleteCookie('oidc_user_token');
+  }
+
   const token = localStorage.getItem('token');
   if (!token) {
     const redirect = getUrlQuery('redirect') || '/';

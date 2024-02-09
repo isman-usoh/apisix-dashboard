@@ -74,10 +74,17 @@ func Authentication() gin.HandlerFunc {
 				return
 			}
 
-			if _, ok := conf.UserList[claims.Subject]; !ok {
-				log.Warnf("user not exists by token claims subject %s", claims.Subject)
-				c.AbortWithStatusJSON(http.StatusUnauthorized, errResp)
-				return
+			// The regular auth flow creates JWT tokens with no Issuer (see `authentication.Handler`).
+			// The SSO auth flow sets the Issuer to "oidc" (see `filter.Oidc`).
+			//
+			// We check if the user (Subject) exists in the hardcoded (in the config) users list
+			// only for tokens spanwed by the regular auth flow.
+			if claims.Issuer != "oidc" {
+				if _, ok := conf.UserList[claims.Subject]; !ok {
+					log.Warnf("user not exists by token claims subject %s", claims.Subject)
+					c.AbortWithStatusJSON(http.StatusUnauthorized, errResp)
+					return
+				}
 			}
 		} else {
 			if cookie.Values["oidc_id"] != conf.OidcId {
