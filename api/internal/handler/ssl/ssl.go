@@ -198,6 +198,18 @@ func (h *Handler) List(c droplet.Context) (interface{}, error) {
 	for _, item := range ret.Rows {
 		ssl := &entity.SSL{}
 		_ = utils.ObjectClone(item, ssl)
+
+		if ssl.Cert != "" {
+			certDERBlock, _ := pem.Decode([]byte(ssl.Cert))
+			if certDERBlock != nil {
+				x509Cert, err := x509.ParseCertificate(certDERBlock.Bytes)
+				if err == nil {
+					ssl.ValidityStart = x509Cert.NotBefore.Unix()
+					ssl.ValidityEnd = x509Cert.NotAfter.Unix()
+				}
+			}
+		}
+
 		ssl.Key = ""
 		ssl.Keys = nil
 		list = append(list, ssl)
@@ -383,8 +395,6 @@ func ParseCert(crt, key string) (*entity.SSL, error) {
 
 	ssl.Snis = snis
 	ssl.Key = key
-	ssl.ValidityStart = x509Cert.NotBefore.Unix()
-	ssl.ValidityEnd = x509Cert.NotAfter.Unix()
 	ssl.Cert = crt
 
 	return &ssl, nil
