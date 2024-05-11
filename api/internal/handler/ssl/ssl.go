@@ -224,7 +224,7 @@ func (h *Handler) List(c droplet.Context) (interface{}, error) {
 
 func (h *Handler) Create(c droplet.Context) (interface{}, error) {
 	input := c.Input().(*entity.SSL)
-	ssl, err := ParseCert(input.Cert, input.Key)
+	ssl, err := ParseCert(input.Cert, input.Key, true)
 	if err != nil {
 		return &data.SpecCodeResponse{StatusCode: http.StatusBadRequest}, err
 	}
@@ -258,7 +258,7 @@ func (h *Handler) Update(c droplet.Context) (interface{}, error) {
 		return &data.SpecCodeResponse{StatusCode: http.StatusBadRequest}, err
 	}
 
-	ssl, err := ParseCert(input.Cert, input.Key)
+	ssl, err := ParseCert(input.Cert, input.Key, true)
 	if err != nil {
 		return &data.SpecCodeResponse{StatusCode: http.StatusBadRequest}, err
 	}
@@ -339,7 +339,7 @@ func (h *Handler) BatchDelete(c droplet.Context) (interface{}, error) {
 	return nil, nil
 }
 
-func ParseCert(crt, key string) (*entity.SSL, error) {
+func ParseCert(crt, key string, insertOrUpdate bool) (*entity.SSL, error) {
 	if crt == "" || key == "" {
 		return nil, consts.ErrSSLCertificate
 	}
@@ -396,7 +396,11 @@ func ParseCert(crt, key string) (*entity.SSL, error) {
 	ssl.Snis = snis
 	ssl.Key = key
 	ssl.Cert = crt
-
+	if !insertOrUpdate {
+		ssl.ValidityStart = x509Cert.NotBefore.Unix()
+		ssl.ValidityEnd = x509Cert.NotAfter.Unix()
+	}
+	
 	return &ssl, nil
 }
 
@@ -429,7 +433,7 @@ func ParseCert(crt, key string) (*entity.SSL, error) {
 //       "$ref": "#/definitions/ApiError"
 func (h *Handler) Validate(c droplet.Context) (interface{}, error) {
 	input := c.Input().(*entity.SSL)
-	ssl, err := ParseCert(input.Cert, input.Key)
+	ssl, err := ParseCert(input.Cert, input.Key, false)
 	if err != nil {
 		return nil, err
 	}
